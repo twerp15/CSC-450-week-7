@@ -1,0 +1,46 @@
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <string>
+#include <chrono>
+
+std::mutex mtx;
+std::condition_variable cv;
+bool isCountUpComplete = false;
+void countUp() {
+    for (int i = 1; i <= 20; ++i) {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            std::cout << "Counting Up: " << i << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        isCountUpComplete = true;
+    }
+    cv.notify_one();
+}
+void countDown() {
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [] { return isCountUpComplete; });
+    }
+
+    for (int i = 20; i >= 0; --i) {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            std::cout << "Counting Down: " << i << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+int main() {
+    std::thread thread1(countUp);
+    std::thread thread2(countDown);
+    thread1.join();
+    thread2.join();
+
+    return 0;
+}
